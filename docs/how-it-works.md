@@ -225,11 +225,11 @@ NodePass uses a JSON-based signaling protocol through the TCP tunnel:
 
 ## Connection Pool Architecture
 
-NodePass implements an efficient connection pooling system for managing network connections, which forms the core of its performance advantages. NodePass supports three transport protocols for connection pools: traditional TCP-based pools, modern QUIC-based UDP pools, and WebSocket-based pools.
+NodePass implements an efficient connection pooling system for managing network connections, which forms the core of its performance advantages. NodePass supports four transport protocols for connection pools: traditional TCP-based pools, modern QUIC-based UDP pools, WebSocket-based pools, and HTTP/2-based pools.
 
 ### Transport Protocol Selection
 
-NodePass provides three connection pool transport options via the `type` parameter:
+NodePass provides four connection pool transport options via the `type` parameter:
 
 1. **TCP-based Pool (type=0, default)**:
    - Traditional TCP connections managed by the `pool` library
@@ -240,7 +240,7 @@ NodePass provides three connection pool transport options via the `type` paramet
 2. **QUIC-based Pool (type=1)**:
    - UDP-based multiplexed streams managed by the `quic` library
    - Single QUIC connection with multiple concurrent streams
-   - Mandatory TLS 1.3 encryption with 0-RTT support
+   - Mandatory TLS 1.3 encryption
    - Superior performance in high-latency and mobile networks
 
 3. **WebSocket-based Pool (type=2)**:
@@ -248,6 +248,12 @@ NodePass provides three connection pool transport options via the `type` paramet
    - Can traverse HTTP proxies and CDNs
    - Uses standard HTTPS ports
    - Suitable for enterprise environments and firewall-restricted scenarios
+
+4. **HTTP/2-based Pool (type=3)**:
+   - Multiplexed streams over a single TLS connection managed by the `nph2` library
+   - Requires TLS encryption (minimum `tls=1`); unencrypted mode is not supported
+   - Standard HTTPS semantics traverse middleboxes well
+   - Suitable for environments where HTTP/2 is preferred over WebSocket
 
 ### QUIC Pool Architecture
 
@@ -299,7 +305,7 @@ When `type=1` is enabled, NodePass uses QUIC protocol for connection pooling wit
 
 **Performance Advantages**:
 - Reduced connection overhead: single UDP socket for all streams
-- 0-RTT connection resumption for faster reconnection
+- Fast connection resumption for quicker reconnection
 - Better congestion control with stream-level prioritization
 - Improved NAT traversal compared to multiple TCP connections
 - Lower latency in packet loss scenarios (no head-of-line blocking)
@@ -360,13 +366,68 @@ When `type=2` is enabled, NodePass uses WebSocket protocol for connection poolin
 - Blends with HTTP traffic, reducing detection and blocking risks
 - Requires TLS encryption
 
+### HTTP/2 Pool Architecture
+
+When `type=3` is enabled, NodePass uses HTTP/2 multiplexed streams for connection pooling with the following characteristics:
+
+**Stream Multiplexing**:
+- Single TLS connection carries multiple bidirectional HTTP/2 streams
+- Each stream represents an individual tunnel connection
+- Streams are independent: one stream's stall doesn't affect others
+- HTTP/2 flow control prevents head-of-line blocking
+
+**Connection Establishment**:
+- Server listens on TCP port and accepts TLS connections with ALPN `h2`
+- Client establishes a single TLS 1.3 connection to the server
+- Client opens new streams on demand with `POST https://host/stream`
+- Server generates unique stream IDs for each incoming stream
+
+**Stream Lifecycle**:
+1. **Stream Creation** (Server side):
+   - Server accepts new TLS connection from authorized client
+   - For each `/stream` request, server validates capacity and generates a stream ID
+   - Stream ID sent back to client for correlation
+   - Stream tracked in the pool's stream registry
+
+2. **Stream Retrieval** (Client side):
+   - Client receives stream ID in the HTTP response
+   - Client binds the stream ID to its local stream
+   - Stream wrapped as `net.Conn` for compatibility
+   - Stream used for data exchange with target endpoint
+
+3. **Stream Termination**:
+   - Stream closed after data exchange completes
+   - Graceful closure with proper cleanup of stream state
+   - TLS connection remains active for future streams
+
+**Dynamic Management**:
+- Pool capacity adjusted based on stream creation success rate
+- Stream creation intervals adapt to pool utilization
+- Maximum concurrent streams bounded by pool capacity
+- Keep-alive mechanism maintains TLS connection health
+
+**Security Features**:
+- TLS is mandatory: the pool cannot start without a TLS config
+- Minimum TLS 1.3 with ALPN `h2` negotiation
+- Two TLS modes supported:
+  - Mode 1: self-signed certificates
+  - Mode 2: full certificate verification for production
+- Client IP restriction available on server side
+
+**Traversal Advantages**:
+- Standard HTTPS semantics traverse middleboxes well
+- Compatible with HTTP/2-aware proxies and load balancers
+- Single TLS connection reduces handshake overhead
+- Blends with regular HTTPS traffic
+
 ### Design Philosophy
 The connection pool design follows the principle of "warm-up over cold start," eliminating network latency through pre-established connections. This design philosophy draws from modern high-performance server best practices, amortizing the cost of connection establishment to the system startup phase rather than bearing this overhead on the critical path.
 
-All three pool types share this philosophy but implement it differently:
+All four pool types share this philosophy but implement it differently:
 - **TCP pools**: Pre-establish multiple independent TCP connections
 - **QUIC pools**: Pre-create multiple streams over a single QUIC connection
 - **WebSocket pools**: Pre-establish multiple WebSocket connections
+- **HTTP/2 pools**: Pre-create multiple streams over a single TLS connection
 
 ### Pool Design
 1. **Pool Types**:
@@ -390,7 +451,7 @@ All three pool types share this philosophy but implement it differently:
    - Pre-established connection pools eliminate TCP three-way handshake delays
    - TLS handshakes complete during connection pool initialization, avoiding runtime encryption negotiation overhead
    - Connection warm-up strategies ensure hot connections are always available in the pool
-   - **QUIC Enhancement**: 0-RTT support further reduces reconnection latency
+   - **QUIC Enhancement**: multiplexed streams avoid per-connection handshakes
 
 2. **Intelligent Load Awareness**:
    - Dynamic pool management based on real-time connection utilization

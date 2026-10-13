@@ -71,7 +71,7 @@ const (
 	DefaultProxyProtocol = "0"
 
 	// DefaultBlockProtocol is a bitmask string controlling which application protocols to block at the connection boundary:
-	// "1" = block SOCKS4/SOCKS5, "2" = block HTTP CONNECT, "4" = block TLS ClientHello. Multiple flags can be combined.
+	// "1" = block SOCKS4/SOCKS5, "2" = block HTTP CONNECT, "3" = block TLS ClientHello. Multiple flags can be combined.
 	DefaultBlockProtocol = "0"
 
 	// DefaultTCPStrategy is reserved for future TCP-specific strategy selection. Currently unused but retained for forward compatibility.
@@ -220,7 +220,7 @@ type Config struct {
 	ProxyProtocol string
 
 	// BlockProtocol is a bitmask string controlling protocol blocking at the connection boundary:
-	// "1" = block SOCKS4/SOCKS5, "2" = block HTTP CONNECT, "4" = block TLS ClientHello.
+	// "1" = block SOCKS4/SOCKS5, "2" = block HTTP CONNECT, "3" = block TLS ClientHello.
 	// Multiple flags can be combined (e.g. "12" blocks SOCKS and HTTP).
 	BlockProtocol string
 

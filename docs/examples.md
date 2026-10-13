@@ -718,7 +718,7 @@ This configuration:
 - Single QUIC connection carries multiple concurrent data streams
 - Mandatory TLS 1.3 encryption (automatically enabled)
 - Better performance in packet loss scenarios (no head-of-line blocking)
-- Improved connection establishment with 0-RTT support
+- Faster connection establishment over UDP
 - Client automatically receives pool type configuration from server during handshake
 
 ### Example 35: QUIC Pool with Custom TLS Certificate
@@ -802,7 +802,7 @@ This configuration:
 - Larger pool size compensates for network transitions
 - Stream multiplexing reduces connection overhead
 - Better handling of packet loss and jitter
-- 0-RTT reconnection for faster recovery after network changes
+- Fast reconnection for quicker recovery after network changes
 - Client automatically adopts pool type from server
 
 ### Example 39: Pool Type Performance Comparison
@@ -833,7 +833,7 @@ nodepass "client://server.example.com:10104/127.0.0.1:8083?mode=2&min=128&log=ev
 - Better support in some enterprise environments
 
 **QUIC Pool Advantages**:
-- Reduced latency with 0-RTT connection resumption
+- Reduced latency with fast connection resumption
 - No head-of-line blocking across streams
 - Better congestion control and loss recovery
 - Improved NAT traversal capabilities

@@ -116,14 +116,14 @@ nodepass server [flags]
 
 #### Connection Pool Configuration
 
-- `--type <type>`
+- `--pool <type>`
   - Connection pool type for dual-end handshake mode: `0` ,`1`, `2` or `3`
   - `0`: TCP connection pool (default)
   - `1`: QUIC connection pool
   - `2`: WebSocket connection pool
   - `3`: HTTP/2 connection pool
   - Only applies in dual-end handshake mode (mode 2)
-  - Example: `--type 1`
+  - Example: `--pool 1`
 
 - `--max <number>`
   - Maximum connection pool capacity

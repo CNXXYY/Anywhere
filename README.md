@@ -21,7 +21,7 @@
 
 - **Connection Pool**
   - Supports TCP, QUIC, WebSocket, HTTP/2 pooling transport methods.
-  - Eliminates handshake delays, boosts performance with 0-RTT support.
+  - Eliminates handshake delays via pre-established pooled connections.
   - Auto-scaling with real-time capacity adjustment.
 
 - **Innovative Architecture**
@@ -59,7 +59,7 @@ nodepass server \
   --target-port 3000
 ```
 
-- **Start a client** for minimal 0-RTT tunneling:
+- **Start a client** for minimal-latency tunneling:
 ```bash
 nodepass client \
   --tunnel-addr server.address \

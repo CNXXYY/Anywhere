@@ -38,7 +38,7 @@ TLS-related parameters (server/master modes only):
 - `key=<key_file>`: Path to private key file (when `tls=2`)
 
 Connection pool type (server mode only):
-- `type=<mode>`: Connection pool type (`0` for TCP pool, `1` for QUIC UDP pool, `2` for WebSocket/WSS pool, default: 0)
+- `type=<mode>`: Connection pool type (`0` for TCP pool, `1` for QUIC UDP pool, `2` for WebSocket/WSS pool, `3` for HTTP/2 pool, default: 0)
   - Server configuration is automatically delivered to client during handshake
   - Client does not need to specify type parameter
 
@@ -84,6 +84,12 @@ nodepass "server://<tunnel_addr>/<target_addr>?log=<level>&tls=<mode>&crt=<cert_
 - `proxy`: PROXY protocol support (default: `0`, `1` enables PROXY protocol v1 header before data transfer)
 - `notcp`: TCP support control (default: `0` enabled, `1` disabled)
 - `noudp`: UDP support control (default: `0` enabled, `1` disabled)
+
+> **Notes**
+> - **Target address groups** (comma-separated `targets`) can only be configured on the
+>   egress side; the tunnel address itself does not accept multiple addresses.
+> - The tunnel port and the target port must differ when both bind on loopback;
+>   a collision aborts startup with an error.
 
 #### How Server Mode Works
 
@@ -154,7 +160,11 @@ nodepass "client://<tunnel_addr>/<target_addr>?log=<level>&dns=<duration>&min=<m
 - `notcp`: TCP support control (default: `0` enabled, `1` disabled)
 - `noudp`: UDP support control (default: `0` enabled, `1` disabled)
 
-**Note**: Connection pool type configuration is automatically received from the server during handshake. Clients do not need to specify the `type` parameter.
+**Note**: In dual-end handshake mode the server is authoritative for pool settings: the
+connection pool `type`, `max` capacity, and the data-channel `tls` mode are delivered
+from the server during handshake and **override** any values set on the client.
+On the client side, only `min` is honored locally. Clients do not need to specify
+the `type` parameter.
 
 #### How Client Mode Works
 
@@ -362,12 +372,16 @@ NodePass uses tunnel keys to authenticate connections between clients and server
    nodepass client://mypassword@10.1.0.1:10101/127.0.0.1:8080
    ```
 
-2. **Port-Derived Key**: If no username is specified, the system uses the hexadecimal value of the port number as the key
+2. **Port-Derived Key**: If no username is specified, the system derives the key from the
+   port number using the FNV-1a 32-bit hash of the port string, hex-encoded
+   (e.g. port `10101` derives key `"e68be2b4"`)
    ```bash
-   # Port 10101's hexadecimal value "2775" will be used as the tunnel key
+   # Port 10101's FNV-1a hash "e68be2b4" will be used as the tunnel key
    nodepass server://10.1.0.1:10101/10.1.0.1:8080
    nodepass client://10.1.0.1:10101/127.0.0.1:8080
    ```
+   > **Note**: Always set an explicit key (`username@`) in production instead of
+   > relying on the derived key.
 
 ### Handshake Process
 
@@ -383,6 +397,12 @@ The handshake process between client and server is as follows:
 5. **Connection Established**: Handshake complete, data transmission begins
 
 This design ensures that only clients with the correct key can establish tunnel connections, while allowing the server to centrally manage connection pool capacity.
+
+> **Security note**: The control channel itself is plaintext TCP. Signaling messages
+> are only XOR-obfuscated with the tunnel key, which is **not encryption** — anyone
+> who can observe the wire can recover the signaling content. Confidentiality of
+> your tunneled data depends entirely on the data-channel `tls` setting (`tls=1`
+> or `tls=2`); with `tls=0` the data channel is plaintext too.
 
 ## Next Steps
 
