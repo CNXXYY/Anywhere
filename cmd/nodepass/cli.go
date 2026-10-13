@@ -25,7 +25,7 @@ type commandLine struct {
 	targetPort *string  // target backend port
 	targets    *string  // multiple targets in comma-separated format
 	log        *string  // log level (none, debug, warn, error, event)
-	dns        *string  // DNS cache TTL in seconds
+	dns        *string  // DNS cache TTL as duration (unit required, e.g. 30s)
 	sni        *string  // SNI (Server Name Indication) hostname for TLS
 	lbs        *string  // load balancing strategy (rr, random, etc.)
 	min        *string  // minimum pool capacity for clients
@@ -36,13 +36,13 @@ type commandLine struct {
 	crt        *string  // certificate file path for TLS mode 2
 	key        *string  // private key file path for TLS mode 2
 	dial       *string  // outbound dialer IP for source binding
-	read       *string  // read timeout in seconds
+	read       *string  // read timeout as duration (unit required, e.g. 30s)
 	rate       *string  // bandwidth rate limit in Mbps
 	slot       *string  // maximum concurrent connection slots
-	proxy      *string  // enable PROXY protocol v1 (true/false)
+	proxy      *string  // enable PROXY protocol v1 ("1"=enable)
 	block      *string  // application protocols to block (1=SOCKS, 2=HTTP, 3=TLS)
-	notcp      *string  // disable TCP support (true/false)
-	noudp      *string  // disable UDP support (true/false)
+	notcp      *string  // disable TCP support ("1"=disable)
+	noudp      *string  // disable UDP support ("1"=disable)
 }
 
 // newCommandLine creates a new commandLine instance initialized with raw command-line arguments.
@@ -114,22 +114,22 @@ func (c *commandLine) addServerFlags(fs *flag.FlagSet) {
 	c.targetPort = fs.String("target-port", "", "Backend target port for single target")
 	c.targets = fs.String("targets", "", "Multiple targets in comma-separated format (overrides single target)")
 	c.log = fs.String("log", "", "Log level: none, debug, warn, error, event")
-	c.dns = fs.String("dns", "", "DNS cache TTL in seconds (0=disabled)")
-	c.tls = fs.String("tls", "", "TLS mode: 0=none, 1=self-signed RAM cert, 2=file-based cert")
+	c.dns = fs.String("dns", "", "DNS cache TTL as duration, e.g. 30s (unit required; 0=disabled)")
+	c.tls = fs.String("tls", "", "TLS mode (server-side): 0=none, 1=self-signed RAM cert, 2=file-based cert")
 	c.crt = fs.String("crt", "", "Certificate file path (for tls=2, X509 PEM format)")
 	c.key = fs.String("key", "", "Private key file path (for tls=2, PEM format)")
-	c.lbs = fs.String("lbs", "", "Load balancing strategy: rr (round-robin), random (default: rr)")
+	c.lbs = fs.String("lbs", "", "Load balancing strategy: 0=round-robin (default), 1=sequential rotation, 2=sticky with fallback")
 	c.max = fs.String("max", "", "Maximum pool capacity for incoming client connections")
 	c.mode = fs.String("mode", "", "Run mode: 0=auto (try single then tunnel), 1=single-connection, 2=tunnel pool")
 	c.pool = fs.String("pool", "", "Connection pool type: 0=TCP, 1=QUIC, 2=WebSocket, 3=HTTP/2")
 	c.dial = fs.String("dial", "", "Outbound source IP for dialing backends (bind to specific interface)")
-	c.read = fs.String("read", "", "Read timeout in seconds for idle connections (0=disabled)")
+	c.read = fs.String("read", "", "Read timeout as duration for idle connections, e.g. 30s (unit required; 0=disabled)")
 	c.rate = fs.String("rate", "", "Bandwidth rate limit in Mbps (per-connection, 0=unlimited)")
 	c.slot = fs.String("slot", "", "Maximum concurrent connection slots (0=unlimited)")
-	c.proxy = fs.String("proxy", "", "Enable PROXY protocol v1 support (true/false)")
+	c.proxy = fs.String("proxy", "", "Enable PROXY protocol v1 support (1=enable, 0=disable)")
 	c.block = fs.String("block", "", "Block application protocols: 1=SOCKS4/5, 2=HTTP, 3=TLS ClientHello")
-	c.notcp = fs.String("notcp", "", "Disable TCP protocol support (true/false)")
-	c.noudp = fs.String("noudp", "", "Disable UDP protocol support (true/false)")
+	c.notcp = fs.String("notcp", "", "Disable TCP protocol support (1=disable, 0=enable)")
+	c.noudp = fs.String("noudp", "", "Disable UDP protocol support (1=disable, 0=enable)")
 }
 
 // addClientFlags registers all command-line flags for the client command.
@@ -150,22 +150,22 @@ func (c *commandLine) addClientFlags(fs *flag.FlagSet) {
 	c.targetPort = fs.String("target-port", "", "Local target port for single target")
 	c.targets = fs.String("targets", "", "Multiple local targets in comma-separated format")
 	c.log = fs.String("log", "", "Log level: none, debug, warn, error, event")
-	c.dns = fs.String("dns", "", "DNS cache TTL in seconds (0=disabled)")
+	c.dns = fs.String("dns", "", "DNS cache TTL as duration, e.g. 30s (unit required; 0=disabled)")
 	c.sni = fs.String("sni", "", "SNI (Server Name Indication) for TLS certificate verification")
-	c.tls = fs.String("tls", "", "TLS mode: 0=none, 1=insecure skip verify, 2=verify with SNI")
+	c.tls = fs.String("tls", "", "TLS mode (client-side): 0=none, 1=insecure skip verify, 2=verify with SNI")
 	c.crt = fs.String("crt", "", "Client certificate file path (for mutual TLS, PEM format)")
 	c.key = fs.String("key", "", "Client private key file path (for mutual TLS, PEM format)")
-	c.lbs = fs.String("lbs", "", "Load balancing strategy: rr (round-robin), random (default: rr)")
+	c.lbs = fs.String("lbs", "", "Load balancing strategy: 0=round-robin (default), 1=sequential rotation, 2=sticky with fallback")
 	c.min = fs.String("min", "", "Minimum pool capacity (adaptive lower bound)")
 	c.mode = fs.String("mode", "", "Connection mode: 0=auto, 1=single-connection, 2=tunnel pool")
 	c.dial = fs.String("dial", "", "Outbound source IP for connecting to server (bind to specific interface)")
-	c.read = fs.String("read", "", "Read timeout in seconds for idle connections (0=disabled)")
+	c.read = fs.String("read", "", "Read timeout as duration for idle connections, e.g. 30s (unit required; 0=disabled)")
 	c.rate = fs.String("rate", "", "Bandwidth rate limit in Mbps (per-connection, 0=unlimited)")
 	c.slot = fs.String("slot", "", "Maximum concurrent connection slots (0=unlimited)")
-	c.proxy = fs.String("proxy", "", "Enable PROXY protocol v1 support (true/false)")
+	c.proxy = fs.String("proxy", "", "Enable PROXY protocol v1 support (1=enable, 0=disable)")
 	c.block = fs.String("block", "", "Block application protocols: 1=SOCKS4/5, 2=HTTP, 3=TLS ClientHello")
-	c.notcp = fs.String("notcp", "", "Disable TCP protocol support (true/false)")
-	c.noudp = fs.String("noudp", "", "Disable UDP protocol support (true/false)")
+	c.notcp = fs.String("notcp", "", "Disable TCP protocol support (1=disable, 0=enable)")
+	c.noudp = fs.String("noudp", "", "Disable UDP protocol support (1=disable, 0=enable)")
 }
 
 // addMasterFlags registers all command-line flags for the master (control API) command.
@@ -178,7 +178,7 @@ func (c *commandLine) addMasterFlags(fs *flag.FlagSet) {
 	c.tunnelAddr = fs.String("tunnel-addr", "", "Master API listening address (e.g., 0.0.0.0, localhost)")
 	c.tunnelPort = fs.String("tunnel-port", "", "Master API listening port number")
 	c.log = fs.String("log", "", "Log level: none, debug, warn, error, event")
-	c.tls = fs.String("tls", "", "TLS mode: 0=none (plain HTTP), 1=self-signed RAM cert, 2=file-based cert")
+	c.tls = fs.String("tls", "", "TLS mode (master API): 0=none (plain HTTP), 1=self-signed RAM cert, 2=file-based cert")
 	c.crt = fs.String("crt", "", "Certificate file path for API server (for tls=2, X509 PEM format)")
 	c.key = fs.String("key", "", "Private key file path for API server (for tls=2, PEM format)")
 }

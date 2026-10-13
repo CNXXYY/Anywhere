@@ -269,6 +269,11 @@ This guide helps you diagnose and resolve common issues you might encounter when
    - Use shorter TTL: `dns=30s`
    - Or use IP addresses directly to bypass DNS caching
 
+> **Note**: `dns=0` disables the cache, but each new connection still performs one
+> DNS resolution whose result is immediately discarded — in high-churn scenarios
+> this adds per-connection resolution overhead. Prefer a short TTL over `0` if
+> the address is stable.
+
 ### DNS Performance Optimization
 
 **Symptoms**: High connection latency, slow startup.
@@ -482,7 +487,7 @@ This guide helps you diagnose and resolve common issues you might encounter when
 
 3. **Certificate Overhead**
    - TLS 1.3 handshake (mandatory for QUIC) can add initial latency
-   - Use 0-RTT resumption for faster reconnection
+   - Reuse pooled connections to avoid repeated handshakes
    - Ensure proper certificate chain to avoid validation delays
 
 4. **Application Compatibility**
@@ -544,7 +549,7 @@ This guide helps you diagnose and resolve common issues you might encounter when
 - High-latency connections (satellite, long-distance)
 - NAT-heavy environments where UDP traversal is better
 - Real-time applications benefiting from stream independence
-- Scenarios where 0-RTT reconnection provides value
+- Scenarios where fast reconnection provides value
 
 **When to Use WebSocket Pool** (`type=2`):
 - Need to traverse HTTP proxies or CDNs

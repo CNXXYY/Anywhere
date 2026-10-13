@@ -256,7 +256,7 @@ func (c *Common) GetProxyProtocol() {
 }
 
 // GetBlockProtocol reads the "block" query parameter, which is a bitmask string controlling protocol blocking:
-// "1" blocks SOCKS4/SOCKS5, "2" blocks HTTP CONNECT, "4" blocks TLS ClientHello.
+// "1" blocks SOCKS4/SOCKS5, "2" blocks HTTP CONNECT, "3" blocks TLS ClientHello.
 // Multiple protocols can be combined (e.g. "12" blocks both SOCKS and HTTP). Useful for preventing tunnel abuse.
 // Also parses and sets boolean flags (BlockSOCKS, BlockHTTP, BlockTLS) for fast runtime checking.
 func (c *Common) GetBlockProtocol() {

@@ -215,7 +215,7 @@ nodepass "server://0.0.0.0:10101/remote.example.com:8080?log=info&tls=1&dial=10.
 
 ## Connection Pool Types
 
-NodePass supports three connection pool types for tunnel connection management in dual-end handshake mode. Each type provides different transport protocols and performance characteristics.
+NodePass supports four connection pool types for tunnel connection management in dual-end handshake mode. Each type provides different transport protocols and performance characteristics.
 
 - `type`: Connection pool type (default: 0)
   - Value 0: Use TCP-based connection pool (traditional pool library)
@@ -223,7 +223,7 @@ NodePass supports three connection pool types for tunnel connection management i
   - Value 2: Use WebSocket/WSS-based connection pool (HTTP upgrade connections)
   - Value 3: Use HTTP/2-based connection pool (multiplexed streams over single TLS connection)
   - Only applies to dual-end handshake mode (mode=2)
-  - Automatically enables TLS if not already configured (minimum tls=1)
+  - TLS auto-upgrade (`tls=0` -> `tls=1`) applies to `type=1` only; `type=2`/`type=3` require explicit `tls=1` or higher
   - Server configuration is automatically delivered to client during handshake
 
 ### TCP Pool (type=0)
@@ -249,7 +249,7 @@ Modern connection pool based on QUIC protocol, providing UDP-based multiplexed s
 
 **Advantages:**
 - **Multiplexing**: Multiple streams over a single UDP connection
-- **Reduced Latency**: Faster connection establishment with 0-RTT support
+- **Reduced Latency**: Faster connection establishment over UDP
 - **Better Loss Recovery**: Stream-level flow control and congestion management
 - **NAT Traversal**: UDP-based protocol works better through NATs and firewalls
 - **Built-in Encryption**: Mandatory TLS 1.3 encryption for all QUIC connections
@@ -259,7 +259,7 @@ Modern connection pool based on QUIC protocol, providing UDP-based multiplexed s
 - High-latency connections (satellite, long-distance)
 - NAT-heavy environments
 - Real-time applications benefiting from stream independence
-- Scenarios where 0-RTT reconnection provides value
+- Scenarios where fast reconnection provides value
 
 **Requirements:**
 - TLS mode must be enabled (tls=1 or tls=2)
@@ -288,7 +288,11 @@ Connection pool based on WebSocket protocol, establishing connections via HTTP u
 - **TLS must be enabled** - WebSocket pool requires WSS (encrypted). Minimum `tls=1` required, `tls=2` recommended for production
 - Only available in dual-end handshake mode (mode=2)
 - TCP port with WebSocket upgrade support required
-- **Important**: Type 2 does NOT support unencrypted mode (tls=0). If tls=0 is specified with type=2, system will automatically enforce tls=1
+- **Important**: Type 2 does NOT support unencrypted mode. Unlike `type=1` (QUIC),
+  which automatically upgrades `tls=0` to `tls=1`, **no automatic TLS upgrade is
+  performed for `type=2` or `type=3`** — if you configure `type=2`/`type=3` with
+  `tls=0`, the connection will run unencrypted (or fail to start for HTTP/2).
+  Always set `tls=1` or `tls=2` explicitly.
 
 ### HTTP/2 Pool (type=3)
 
@@ -886,7 +890,7 @@ For applications relying heavily on UDP traffic:
 For optimizing TCP connections:
 
 - `NP_TCP_DATA_BUF_SIZE`: Buffer size for TCP data transfer
-  - Default (32768) provides good balance for most applications
+  - Default (16384) provides good balance for most applications
   - Increase for high-throughput applications requiring larger buffers
   - Consider increasing to 65536 or higher for bulk data transfers and streaming
 
